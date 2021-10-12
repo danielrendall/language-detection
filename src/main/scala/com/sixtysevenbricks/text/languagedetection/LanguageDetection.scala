@@ -3,7 +3,9 @@ package com.sixtysevenbricks.text.languagedetection
 import collection.mutable.HashMap
 import java.io.File
 import org.apache.commons.io.{FileUtils, FilenameUtils}
-import scala.collection.jcl.Conversions._
+
+import scala.collection.convert.ImplicitConversions.{`collection AsScalaIterable`, `seq AsJavaList`}
+import scala.collection.mutable
 
 /**
  * Work out the language of a piece of text by comparing its n-gram fingerprint
@@ -19,15 +21,17 @@ import scala.collection.jcl.Conversions._
  */
 class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
 
+  type Pair[A, B] = (A, B)
+
   /** Identify a text as being in a specific language, returning the name of that language. */
-  def identifyLanguage(text : String) : String = {
+  def identifyLanguage(text: String): String = {
     val maxChars = 4
 
     val profile = createNgramProfile(text, maxChars).take(300)
-    val languageScores = for (language <-languagesToCheck;
-                              languagePrints = fingerprints(language).filter(_.length<=maxChars))
-                                  yield (language, computeDistance(profile, languagePrints))
-    languageScores.sort(tupleComparator).last._1
+    val languageScores: Seq[(String, Int)] = for (language <- languagesToCheck;
+                                                  languagePrints = fingerprints(language).filter(_.length <= maxChars))
+    yield (language, computeDistance(profile, languagePrints))
+    languageScores.sortWith(tupleComparator).last._1
   }
 
   type Profile = Seq[String]
@@ -35,40 +39,42 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
   val fingerprints = readFingerprints(fingerprintDir)
 
   /** Read language fingerprints from .lm files containing one line per ngram sorted in order of occurrence */
-  private def readFingerprints(dir : File) = {
-    val fingerprints = new HashMap[String, Profile]()
+  private def readFingerprints(dir: File) = {
+    val fingerprints = new mutable.HashMap[String, Profile]()
     for (f <- dir.listFiles.filter(_.getName.endsWith(".fp"))) {
       val languageName = FilenameUtils.getBaseName(f.getName)
-      val lines = FileUtils.readLines(f).asInstanceOf[java.util.List[String]]
+      val lines = FileUtils.readLines(f).asInstanceOf[java.util.List[String]].toList
       fingerprints(languageName) = for (line <- lines) yield line
     }
     fingerprints
   }
 
   /** Remove non-alphabetic characters except whitespace */
-  def removePunctuation(text: String) = text.replaceAll("[^\\p{L}\\s]","")
+  def removePunctuation(text: String) = text.replaceAll("[^\\p{L}\\s]", "")
 
   /** Convert tabs and runs of space to single spaces, and trim leading and trailing space. */
-  def normalizeSpace(text: String) = text.trim().replaceAll("[\\s\\t]+"," ")
+  def normalizeSpace(text: String) = text.trim().replaceAll("[\\s\\t]+", " ")
 
-  /** A Map whose empty values are initialized on access according to the passed-in function. Useful for counters. */ 
-  class DefaultDict[K, V](defaultFn: (K)=>V) extends HashMap[K, V] {
+  /** A Map whose empty values are initialized on access according to the passed-in function. Useful for counters. */
+  class DefaultDict[K, V](defaultFn: (K) => V) extends HashMap[K, V] {
     override def default(key: K): V = return defaultFn(key)
   }
 
   /** Provide a total occurrence for each of the distinct terms in a sequence. i.e. (red,fish,blue,fish) will return: red 1, fish 2, blue 1. */
   def countValues[T](terms: Seq[T]) = {
-    var count = new DefaultDict[T, int](K => 0)
-    for (term <- terms) { count(term) = count(term) + 1}
+    var count = new DefaultDict[T, Int](K => 0)
+    for (term <- terms) {
+      count(term) = count(term) + 1
+    }
     count
   }
 
   /** Extract the n-grams (bigrams, trigrams, etc.) from a piece of text into a sequence. Spaces are represented as _. */
-  def extractNgrams(text: String, maxChars : Int) : Seq[String] = {
-    val normalizedText : String = "_"+removePunctuation(normalizeSpace(text.toLowerCase)).replace(" ","_")+"_"
+  def extractNgrams(text: String, maxChars: Int): Seq[String] = {
+    val normalizedText: String = "_" + removePunctuation(normalizeSpace(text.toLowerCase)).replace(" ", "_") + "_"
     for {start <- (0 to normalizedText.length);
          length <- (1 to maxChars);
-         if start+length <= normalizedText.length} yield normalizedText.substring(start, start+length)
+         if start + length <= normalizedText.length} yield normalizedText.substring(start, start + length)
   }
 
   /** Provide a sorted summary count of the n-grams in a piece of text. */
@@ -80,18 +86,18 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
     (a,b) match { case ((k1,v1),(k2,v2)) => v1.compare(v2)>0; }
 
   /** Remove the unigrams, then sort the ngrams by their occurrence into a flat profile. */
-  private def sortNgramValues(countedValues : HashMap[String, Int]) : Profile =
-    countedValues.filterKeys( _.length>1 ).toList.sort( tupleComparator ).map( _ match { case (k,v) => k } )
+  private def sortNgramValues(countedValues: HashMap[String, Int]): Profile =
+    countedValues.filterKeys(_.length > 1).toList.sortWith(tupleComparator).map(_ match { case (k, v) => k })
 
   /** Work out the distance between two n-gram profiles. */
-  private def computeDistance(ngrams:Profile, otherProfile:Profile) : Int = {
+  private def computeDistance(ngrams: Profile, otherProfile: Profile): Int = {
     val max = 30
     val termDistances = for (key <- ngrams;
                              rank = ngrams.indexOf(key);
                              otherRank = if (otherProfile.contains(key)) otherProfile.indexOf(key) else 999;
                              diff = Math.abs(rank - otherRank))
-                        yield if (diff>max) max else diff
-    termDistances.foldLeft(0)(_+_)
+    yield if (diff > max) max else diff
+    termDistances.foldLeft(0)(_ + _)
   }
 
 }
