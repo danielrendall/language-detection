@@ -26,8 +26,6 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
 
   private val fingerprints: Map[String, Seq[String]] = readFingerprints(fingerprintDir)
 
-  type Profile = Seq[String]
-
   /** Identify a text as being in a specific language, returning the name of that language. */
   def identifyLanguage(text: String): String = {
     val maxChars = 4
