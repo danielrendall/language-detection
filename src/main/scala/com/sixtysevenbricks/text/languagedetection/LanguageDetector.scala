@@ -1,9 +1,10 @@
 package com.sixtysevenbricks.text.languagedetection
 
+import com.sixtysevenbricks.text.languagedetection.ListConverters.ListOps
+
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /**
  * Work out the language of a piece of text by comparing its n-gram fingerprint
@@ -41,7 +42,7 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
   private def readFingerprints(dir: File): Map[String, Seq[String]] = {
     dir.listFiles.filter(_.getName.endsWith(".fp")).map { file =>
       val languageName = file.getName.substring(0, file.getName.lastIndexOf(".fp"))
-      val lines = Files.readAllLines(file.toPath, StandardCharsets.UTF_8).asScala.toSeq
+      val lines = Files.readAllLines(file.toPath, StandardCharsets.UTF_8).asScalaList
       languageName -> lines
     }.toMap
   }
