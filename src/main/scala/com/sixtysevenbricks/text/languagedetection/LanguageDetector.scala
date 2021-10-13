@@ -1,5 +1,6 @@
 package com.sixtysevenbricks.text.languagedetection
 
+import com.sixtysevenbricks.text.languagedetection.Implicits.StringOps
 import com.sixtysevenbricks.text.languagedetection.Shims.{ListOps, MapOps}
 
 import java.io.File
@@ -47,12 +48,6 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
     }.toMap
   }
 
-  /** Remove non-alphabetic characters except whitespace */
-  def removePunctuation(text: String): String = text.replaceAll("[^\\p{L}\\s]", "")
-
-  /** Convert tabs and runs of space to single spaces, and trim leading and trailing space. */
-  def normalizeSpace(text: String): String = text.trim().replaceAll("[\\s\\t]+", " ")
-
   /** Provide a total occurrence for each of the distinct terms in a sequence. i.e. (red,fish,blue,fish) will return: red 1, fish 2, blue 1. */
   def countValues[T](terms: Seq[T]): Map[T, Int] = {
     terms.groupBy(identity).myMapValues(_.length)
@@ -60,7 +55,7 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
 
   /** Extract the n-grams (bigrams, trigrams, etc.) from a piece of text into a sequence. Spaces are represented as _. */
   def extractNgrams(text: String, maxChars: Int): Seq[String] = {
-    val normalizedText: String = "_" + removePunctuation(normalizeSpace(text.toLowerCase)).replace(" ", "_") + "_"
+    val normalizedText: String = "_" + text.toLowerCase.withNormalisedSpace.withoutPunctuation.replace(" ", "_") + "_"
     for {start <- (0 to normalizedText.length);
          length <- (1 to maxChars);
          if start + length <= normalizedText.length} yield normalizedText.substring(start, start + length)

@@ -11,18 +11,6 @@ class LanguageDetectorSpec extends Specification {
 
   "Language detector" should {
 
-    "removePunctuation" in {
-      detector.removePunctuation("Fi!sh cakes.?123") must_=== "Fish cakes"
-    }
-
-    "removePunctuationEmptyString" in {
-      detector.removePunctuation("") must_=== ""
-    }
-
-    "normalizeSpace" in {
-      detector.normalizeSpace("  Fish\u0009 \u000A cakes \u000A  ") must_=== "Fish cakes"
-    }
-
     "extractNgrams1" in {
       detector.extractNgrams("Fish", 1).toList must_=== List("_", "f", "i", "s", "h", "_")
     }
@@ -30,7 +18,6 @@ class LanguageDetectorSpec extends Specification {
     "extractNgrams2" in {
       detector.extractNgrams("Fish", 2).toList must_=== List("_", "_f", "f", "fi", "i", "is", "s", "sh", "h", "h_", "_")
     }
-
 
     "extractNgrams3" in {
       detector.extractNgrams("Fish", 3).toList must_=== List("_", "_f", "_fi", "f", "fi", "fis", "i", "is", "ish", "s", "sh", "sh_", "h", "h_", "_")
