@@ -2,15 +2,10 @@ package com.sixtysevenbricks.text.languagedetection
 
 import org.specs2.mutable.Specification
 
-import java.io.File
-
 class LanguageDetectorSpec extends Specification {
-  var detector = new LanguageDetector(getFile("/profile"), List("fr-FR", "de-DE", "en-US"))
-
-  def getFile(path: String) = new File(this.getClass.getResource(path).getFile.replace("%20", " "))
+  val detector: LanguageDetector = LanguageDetector.default
 
   "Language detector" should {
-
 
     "identifyEnglish" in {
       detector.identifyLanguage("Hello world this is English") must_=== "en-US"

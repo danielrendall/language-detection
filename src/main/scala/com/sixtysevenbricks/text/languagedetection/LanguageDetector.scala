@@ -1,11 +1,6 @@
 package com.sixtysevenbricks.text.languagedetection
 
-import com.sixtysevenbricks.text.languagedetection.Implicits.StringOps
-import com.sixtysevenbricks.text.languagedetection.Shims.{ListOps, MapOps}
-
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Work out the language of a piece of text by comparing its n-gram fingerprint
@@ -19,40 +14,39 @@ import java.nio.file.Files
  * @author Inigo Surguy
  * @created 6th June 2009
  */
-class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
+class LanguageDetector(initialFingerprints: Iterable[LanguageFingerprint]) {
 
-  private val fingerprints: Map[String, Seq[String]] = readFingerprints(fingerprintDir)
+  private final val fingerprints =
+    new AtomicReference[Map[String, LanguageFingerprint]](initialFingerprints.map(s => s.languageName -> s).toMap)
 
   /** Identify a text as being in a specific language, returning the name of that language. */
   def identifyLanguage(text: String): String = {
     val maxChars = 4
 
     val profile = NGramProfiler.createNgramProfile(text, maxChars).take(300)
-    val languageScores: Seq[(String, Int)] = for (language <- languagesToCheck;
-                                                  languagePrints = fingerprints(language).filter(_.length <= maxChars))
-    yield (language, computeDistance(profile, languagePrints))
-    languageScores.max._1
+
+    fingerprints.get().values.map(lf => (lf.languageName, lf.computeDistance(profile, maxChars))).max._1
   }
+}
 
-  /** Read language fingerprints from .lm files containing one line per ngram sorted in order of occurrence */
-  private def readFingerprints(dir: File): Map[String, Seq[String]] = {
-    dir.listFiles.filter(_.getName.endsWith(".fp")).map { file =>
-      val languageName = file.getName.substring(0, file.getName.lastIndexOf(".fp"))
-      val lines = Files.readAllLines(file.toPath, StandardCharsets.UTF_8).asScalaList
-      languageName -> lines
-    }.toMap
-  }
+object LanguageDetector {
 
+  /**
+   * The languages for which we have built-in support
+   */
+  val availableLanguages: Seq[String] = Seq("de-DE", "en-US", "fr-FR")
 
-  /** Work out the distance between two n-gram profiles. */
-  private def computeDistance(ngrams: Profile, otherProfile: Profile): Int = {
-    val max = 30
-    val termDistances = for (key <- ngrams;
-                             rank = ngrams.indexOf(key);
-                             otherRank = if (otherProfile.contains(key)) otherProfile.indexOf(key) else 999;
-                             diff = Math.abs(rank - otherRank))
-    yield if (diff > max) max else diff
-    termDistances.sum
+  /**
+   * Build a language detector initialised with fingerprints taken from the resources directory; these are currently
+   * de-DE, en-US and fr-FR
+   *
+   * @return A default LanguageDetector
+   */
+  def default: LanguageDetector = {
+    val fingerprints: Seq[LanguageFingerprint] = availableLanguages.map { l =>
+      LanguageFingerprint.load(l, LanguageDetector.getClass.getResourceAsStream(s"/profile/$l.fp"))
+    }
+    new LanguageDetector(fingerprints)
   }
 
 }
