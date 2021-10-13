@@ -3,7 +3,6 @@ package com.sixtysevenbricks.text.languagedetection
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import scala.collection.mutable.HashMap
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /**
@@ -20,7 +19,12 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
  */
 class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
 
-  type Pair[A, B] = (A, B)
+  // We want higher counts to come first, not last; negating them is a cheap trick which works...
+  private implicit val tupleOrdering: Ordering[(String, Int)] = Ordering.by(x => (-x._2, x._1))
+
+  private val fingerprints: Map[String, Seq[String]] = readFingerprints(fingerprintDir)
+
+  type Profile = Seq[String]
 
   /** Identify a text as being in a specific language, returning the name of that language. */
   def identifyLanguage(text: String): String = {
@@ -30,12 +34,8 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
     val languageScores: Seq[(String, Int)] = for (language <- languagesToCheck;
                                                   languagePrints = fingerprints(language).filter(_.length <= maxChars))
     yield (language, computeDistance(profile, languagePrints))
-    languageScores.sortWith(tupleComparator).last._1
+    languageScores.max._1
   }
-
-  type Profile = Seq[String]
-
-  val fingerprints: Map[String, Seq[String]] = readFingerprints(fingerprintDir)
 
   /** Read language fingerprints from .lm files containing one line per ngram sorted in order of occurrence */
   private def readFingerprints(dir: File): Map[String, Seq[String]] = {
@@ -47,23 +47,14 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
   }
 
   /** Remove non-alphabetic characters except whitespace */
-  def removePunctuation(text: String) = text.replaceAll("[^\\p{L}\\s]", "")
+  def removePunctuation(text: String): String = text.replaceAll("[^\\p{L}\\s]", "")
 
   /** Convert tabs and runs of space to single spaces, and trim leading and trailing space. */
-  def normalizeSpace(text: String) = text.trim().replaceAll("[\\s\\t]+", " ")
-
-  /** A Map whose empty values are initialized on access according to the passed-in function. Useful for counters. */
-  class DefaultDict[K, V](defaultFn: (K) => V) extends HashMap[K, V] {
-    override def default(key: K): V = return defaultFn(key)
-  }
+  def normalizeSpace(text: String): String = text.trim().replaceAll("[\\s\\t]+", " ")
 
   /** Provide a total occurrence for each of the distinct terms in a sequence. i.e. (red,fish,blue,fish) will return: red 1, fish 2, blue 1. */
-  def countValues[T](terms: Seq[T]) = {
-    var count = new DefaultDict[T, Int](K => 0)
-    for (term <- terms) {
-      count(term) = count(term) + 1
-    }
-    count
+  def countValues[T](terms: Seq[T]): Map[T, Int] = {
+    terms.groupBy(identity).view.mapValues(_.length).toMap
   }
 
   /** Extract the n-grams (bigrams, trigrams, etc.) from a piece of text into a sequence. Spaces are represented as _. */
@@ -75,16 +66,13 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
   }
 
   /** Provide a sorted summary count of the n-grams in a piece of text. */
-  def createNgramProfile(text: String, maxChars : Int) : Profile =
-    sortNgramValues( countValues( extractNgrams(text, maxChars) ) )
-
-  /** Compare a tuple based on its second value. */
-  private def tupleComparator(a : Pair[String, Int], b : Pair[String, Int]) =
-    (a,b) match { case ((k1,v1),(k2,v2)) => v1.compare(v2)>0; }
+  def createNgramProfile(text: String, maxChars: Int): Profile =
+    sortNgramValues(countValues(extractNgrams(text, maxChars)))
 
   /** Remove the unigrams, then sort the ngrams by their occurrence into a flat profile. */
-  private def sortNgramValues(countedValues: HashMap[String, Int]): Profile =
-    countedValues.filterKeys(_.length > 1).toList.sortWith(tupleComparator).map(_ match { case (k, v) => k })
+  private def sortNgramValues(countedValues: Map[String, Int]): Profile = {
+    countedValues.view.filterKeys(_.length > 1).toList.sorted.map(_._1)
+  }
 
   /** Work out the distance between two n-gram profiles. */
   private def computeDistance(ngrams: Profile, otherProfile: Profile): Int = {
@@ -94,7 +82,7 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
                              otherRank = if (otherProfile.contains(key)) otherProfile.indexOf(key) else 999;
                              diff = Math.abs(rank - otherRank))
     yield if (diff > max) max else diff
-    termDistances.foldLeft(0)(_ + _)
+    termDistances.sum
   }
 
 }
