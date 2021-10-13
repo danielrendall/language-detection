@@ -16,7 +16,6 @@ import xml.XML
  */
 object ProfileCreator {
 
-  val detector = new LanguageDetector(new File("."),List())
   val sourcesDir = new File("../src/test/resources/sources/")
   val outputDir = new File("../src/main/resources/profile")
 
@@ -31,7 +30,7 @@ object ProfileCreator {
     regexToRemove.foreach( regex => text = text.replaceAll(regex,""))
 
     println("Creating ngrams")
-    val ngrams = detector.createNgramProfile(text, 5).take(2000)
+    val ngrams = NGramProfiler.createNgramProfile(text, 5).take(2000)
     println("Writing out ngrams")
     val language = file.getName.substring(0, file.getName.indexOf("_"))
     val out = new PrintStream(new FileOutputStream(new File(outputDir, language+".lm")))
