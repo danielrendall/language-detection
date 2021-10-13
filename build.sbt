@@ -11,7 +11,7 @@ ThisBuild / organization     := "com.sixtysevenbricks.text.languagedetection"
 ThisBuild / organizationName := "languagedetection"
 
 githubOwner := "danielrendall"
-githubRepository := "languagedetection"
+githubRepository := "language-detection"
 githubTokenSource := TokenSource.Environment("GITHUB_TOKEN")
 releaseCrossBuild := true
 
