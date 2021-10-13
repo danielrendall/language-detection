@@ -20,7 +20,6 @@ lazy val root = (project in file("."))
     name := "LanguageDetection",
     crossScalaVersions := supportedScalaVersions,
     libraryDependencies ++= Seq(
-      "commons-io" % "commons-io" % "1.4",
       specs2 % Test
     )
 )

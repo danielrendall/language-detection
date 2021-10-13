@@ -1,11 +1,10 @@
 package com.sixtysevenbricks.text.languagedetection
 
-import collection.mutable.HashMap
 import java.io.File
-import org.apache.commons.io.{FileUtils, FilenameUtils}
-
-import scala.collection.convert.ImplicitConversions.{`collection AsScalaIterable`, `seq AsJavaList`}
-import scala.collection.mutable
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import scala.collection.mutable.HashMap
+import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /**
  * Work out the language of a piece of text by comparing its n-gram fingerprint
@@ -36,17 +35,15 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
 
   type Profile = Seq[String]
 
-  val fingerprints = readFingerprints(fingerprintDir)
+  val fingerprints: Map[String, Seq[String]] = readFingerprints(fingerprintDir)
 
   /** Read language fingerprints from .lm files containing one line per ngram sorted in order of occurrence */
-  private def readFingerprints(dir: File) = {
-    val fingerprints = new mutable.HashMap[String, Profile]()
-    for (f <- dir.listFiles.filter(_.getName.endsWith(".fp"))) {
-      val languageName = FilenameUtils.getBaseName(f.getName)
-      val lines = FileUtils.readLines(f).asInstanceOf[java.util.List[String]].toList
-      fingerprints(languageName) = for (line <- lines) yield line
-    }
-    fingerprints
+  private def readFingerprints(dir: File): Map[String, Seq[String]] = {
+    dir.listFiles.filter(_.getName.endsWith(".fp")).map { file =>
+      val languageName = file.getName.substring(0, file.getName.lastIndexOf(".fp"))
+      val lines = Files.readAllLines(file.toPath, StandardCharsets.UTF_8).asScala.toSeq
+      languageName -> lines
+    }.toMap
   }
 
   /** Remove non-alphabetic characters except whitespace */
