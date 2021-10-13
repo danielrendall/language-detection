@@ -1,6 +1,6 @@
 package com.sixtysevenbricks.text.languagedetection
 
-import com.sixtysevenbricks.text.languagedetection.ListConverters.ListOps
+import com.sixtysevenbricks.text.languagedetection.Shims.{ListOps, MapOps}
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -55,7 +55,7 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
 
   /** Provide a total occurrence for each of the distinct terms in a sequence. i.e. (red,fish,blue,fish) will return: red 1, fish 2, blue 1. */
   def countValues[T](terms: Seq[T]): Map[T, Int] = {
-    terms.groupBy(identity).view.mapValues(_.length).toMap
+    terms.groupBy(identity).myMapValues(_.length)
   }
 
   /** Extract the n-grams (bigrams, trigrams, etc.) from a piece of text into a sequence. Spaces are represented as _. */
@@ -72,7 +72,7 @@ class LanguageDetector(fingerprintDir: File, languagesToCheck: List[String]) {
 
   /** Remove the unigrams, then sort the ngrams by their occurrence into a flat profile. */
   private def sortNgramValues(countedValues: Map[String, Int]): Profile = {
-    countedValues.view.filterKeys(_.length > 1).toList.sorted.map(_._1)
+    countedValues.myFilterKeys(_.length > 1).toList.sorted.map(_._1)
   }
 
   /** Work out the distance between two n-gram profiles. */
